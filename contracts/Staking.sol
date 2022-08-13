@@ -4,6 +4,7 @@ pragma solidity ^0.8;
 import "./RewardPool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "hardhat/console.sol";
 
 error Staking__NoStakeInPool();
@@ -19,7 +20,7 @@ error Staking__PoolAlreadyClosed();
 error Staking__PoolExceededValidityPeriod();
 error Staking__StakeExceedsYourBalance();
 
-contract StakingRewards is Pausable {
+contract StakingRewards is Pausable, ReentrancyGuard {
     event Staked(
         address userAddress,
         uint amountStaked,
@@ -57,7 +58,7 @@ contract StakingRewards is Pausable {
 
     /// @param _stakingToken This is the Address of the ERC20 token we are staking.
     /// @param _rewardPool This is the distributor contract that pays out rewards.
-    constructor(address _stakingToken, address _rewardPool) {
+    constructor(address _stakingToken, address _rewardPool) ReentrancyGuard() {
         owner = msg.sender;
         stakingToken = IERC20(_stakingToken);
         rewardPool = Distributor(_rewardPool);
@@ -170,7 +171,7 @@ contract StakingRewards is Pausable {
     }
 
     /// @dev This function allows the user to clalim rewards.
-    function claimRewards() external whenNotPaused updateReward(msg.sender) {
+    function claimRewards() external whenNotPaused updateReward(msg.sender) nonReentrant() {
         // if(balanceOf[msg.sender] <= 0){
         //     revert Staking__NoStakeInPool();
         // }
@@ -181,6 +182,7 @@ contract StakingRewards is Pausable {
         require(!isPoolClosed, "Too late! Pool has been closed!");
 
         uint amount = rewards[msg.sender];
+        rewards[msg.sender] = 0;
         stakingToken.transfer(msg.sender, amount);
 
         emit RewardsClaimed(msg.sender, amount);
@@ -191,9 +193,10 @@ contract StakingRewards is Pausable {
         require(!isPoolClosed, "Pool Already Closed");
 
         uint amount = rewardPool.poolBalance();
+        isPoolClosed = true;
         rewardPool.transfer(owner, amount);
 
-        isPoolClosed = true;
+        
 
         emit ClosedPool(msg.sender, amount);
     }

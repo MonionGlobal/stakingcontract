@@ -5,11 +5,12 @@ pragma solidity ^0.8.0;
 
 import "./Monion.sol";
 import "./Admin.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @dev This contract is a pool contract, it holds ERC20 tokens.
 /// @author Toba Ajiboye
 /// @notice This contract dispenses reward tokens for the staking contract.
-contract Distributor {
+contract Distributor is ReentrancyGuard {
     
     Monion monion;
     Admin admin;
@@ -17,7 +18,7 @@ contract Distributor {
 
     /// @param _monionAddress This is the address for the ERC20 token to be held in the pool.
     /// @param _admin This is the address for the Admin contract.
-    constructor(address _monionAddress, address _admin) {
+    constructor(address _monionAddress, address _admin) ReentrancyGuard() {
         admin = Admin(_admin);
         monion = Monion(_monionAddress);
     }
@@ -25,7 +26,7 @@ contract Distributor {
     /// @notice This function is only callable from the staking contract. 
     /// @param to This is the address we are sending the funds to. 
     /// @param amount This is the amount being sent.
-    function transfer(address to, uint256 amount) public  {
+    function transfer(address to, uint256 amount) public nonReentrant()  {
         //confirm address
         //confirm reward balance
         require(msg.sender == admin.isStakingAddress(), "You cannot call this function");
