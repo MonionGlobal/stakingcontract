@@ -25,13 +25,15 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         address userAddress,
         uint amountStaked,
         uint userBalance,
-        uint rewardBalance
+        uint rewardBalance,
+        uint totalSupplyStaked
     );
     event Unstaked(
         address userAddress,
         uint amountStaked,
         uint userBalance,
-        uint rewardBalance
+        uint rewardBalance,
+        uint totalSupplyStaked
     );
     event RewardsClaimed(address userAddress, uint rewardsAmount);
     event ClosedPool(address sender, uint withdrawnFromPool);
@@ -107,16 +109,19 @@ contract StakingRewards is Pausable, ReentrancyGuard {
             revert Staking__StakeExceedsYourBalance();
         }
 
+        stakingToken.transferFrom(msg.sender, address(this), amount);
+
         balanceOf[msg.sender] += amount;
         totalSupply += amount;
 
-        stakingToken.transferFrom(msg.sender, address(this), amount);
+        
 
         emit Staked(
             msg.sender,
             amount,
             balanceOf[msg.sender],
-            rewards[msg.sender]
+            rewards[msg.sender],
+            totalSupply
         );
     }
 
@@ -142,7 +147,8 @@ contract StakingRewards is Pausable, ReentrancyGuard {
             msg.sender,
             amount,
             balanceOf[msg.sender],
-            rewards[msg.sender]
+            rewards[msg.sender],
+            totalSupply
         );
     }
 
