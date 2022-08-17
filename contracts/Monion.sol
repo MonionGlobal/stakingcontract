@@ -9,7 +9,9 @@ contract Monion is ERC20 {
     address public owner;
 
     constructor(uint initialSupply) ERC20("Monion", "MONI"){
-        _mint(msg.sender, initialSupply * 1e18) ;
+        _mint(msg.sender, initialSupply 
+        * 1e18
+        ) ;
         owner = msg.sender;
     }
     

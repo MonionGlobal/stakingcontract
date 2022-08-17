@@ -42,9 +42,9 @@ contract StakingRewards is Pausable, ReentrancyGuard {
     Distributor rewardPool;
 
     address public owner; // Contract owner
-    uint public constant validityPeriod = 60 * 60 * 24 * 365 ; //Length of days for staking: 1 year
-    uint public constant maximumPoolMonions = 100000 ; //Maximum Pool size for Staking
-    uint public constant totalReward = 20000 ; //20% return on Max Pool size.
+    uint public constant validityPeriod = 60 * 60 * 24 * 365; //Length of days for staking: 1 year
+    uint public constant maximumPoolMonions = 100000 * 1e18; //Maximum Pool size for Staking
+    uint public constant totalReward = 20000 * 1e18; //20% return on Max Pool size.
 
     uint public totalSupply; //Total amount of ERC20 tokens currently staked in the contract.
     uint public finishAt; //Time at which staking becomes closed. i.e. Current time + 1 year,
@@ -96,16 +96,15 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         validateDeposit(amount)
         updateReward(msg.sender)
     {
-        
-        if(isPoolClosed){
+        if (isPoolClosed) {
             revert Staking__PoolAlreadyClosed();
         }
-        
-        if(block.timestamp > finishAt) {
+
+        if (block.timestamp > finishAt) {
             revert Staking__PoolExceededValidityPeriod();
         }
-        
-        if(amount > stakingToken.balanceOf(msg.sender)){
+
+        if (amount > stakingToken.balanceOf(msg.sender)) {
             revert Staking__StakeExceedsYourBalance();
         }
 
@@ -113,8 +112,6 @@ contract StakingRewards is Pausable, ReentrancyGuard {
 
         balanceOf[msg.sender] += amount;
         totalSupply += amount;
-
-        
 
         emit Staked(
             msg.sender,
@@ -177,7 +174,12 @@ contract StakingRewards is Pausable, ReentrancyGuard {
     }
 
     /// @dev This function allows the user to clalim rewards.
-    function claimRewards() external whenNotPaused updateReward(msg.sender) nonReentrant() {
+    function claimRewards()
+        external
+        whenNotPaused
+        updateReward(msg.sender)
+        nonReentrant
+    {
         // if(balanceOf[msg.sender] <= 0){
         //     revert Staking__NoStakeInPool();
         // }
@@ -202,8 +204,6 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         isPoolClosed = true;
         rewardPool.transfer(owner, amount);
 
-        
-
         emit ClosedPool(msg.sender, amount);
     }
 
@@ -222,6 +222,22 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         uint numerator = prevBalance * totalReward * diff;
         uint denominator = maximumPoolMonions * validityPeriod;
         return numerator / denominator;
+    }
+
+    /// @dev returns variables used to calculated earned rewards in realtime.
+    function getCalcRewardVariables()
+        public
+        view
+        returns (
+            uint256 previousBalance,
+            uint lastTimeRewardApplicable,
+            uint lastUpdatedTime
+        )       
+
+    {
+        previousBalance = balanceOf[msg.sender];
+        lastTimeRewardApplicable = _lastTimeRewardApplicable();
+        lastUpdatedTime = userLastUpdateTime[msg.sender];
     }
 
     function _lastTimeRewardApplicable() internal view returns (uint) {
