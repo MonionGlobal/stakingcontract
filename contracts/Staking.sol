@@ -43,8 +43,8 @@ contract StakingRewards is Pausable, ReentrancyGuard {
 
     address public owner; // Contract owner
     uint public constant validityPeriod = 60 * 60 * 24 * 365; //Length of days for staking: 1 year
-    uint public constant maximumPoolMonions = 100000 * 1e18; //Maximum Pool size for Staking
-    uint public constant totalReward = 20000 * 1e18; //20% return on Max Pool size.
+    uint public constant maximumPoolMonions = 5000000 * 1e18; //Maximum Pool size for Staking
+    uint public constant totalReward = 100000 * 1e18; //20% return on Max Pool size.
 
     uint public totalSupply; //Total amount of ERC20 tokens currently staked in the contract.
     uint public finishAt; //Time at which staking becomes closed. i.e. Current time + 1 year,
