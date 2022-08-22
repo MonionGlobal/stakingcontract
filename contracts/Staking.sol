@@ -39,7 +39,7 @@ contract StakingRewards is Pausable, ReentrancyGuard {
     event ClosedPool(address sender, uint withdrawnFromPool);
 
     IERC20 public immutable stakingToken;
-    Distributor rewardPool;
+    Distributor rewardPool; 
 
     address public owner; // Contract owner
     uint public constant validityPeriod = 60 * 60 * 24 * 365; //Length of days for staking: 1 year
