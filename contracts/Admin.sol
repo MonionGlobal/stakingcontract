@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.7.0) (token/ERC20/ERC20.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.7;
 
 contract Admin {
     
@@ -16,6 +16,7 @@ contract Admin {
     /// @param _account This is the address for the staking contract.
     function setStakingAddress(address _account) external {
         require(msg.sender == owner, "You cannot call this function");
+        require(_account != address(0), "Cannot add zero address");
         staking = _account;
     }
 

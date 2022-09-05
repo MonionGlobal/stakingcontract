@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8;
+pragma solidity ^0.8.7;
 
 import "./RewardPool.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "hardhat/console.sol";
 
 error Staking__NoStakeInPool();
 error Staking__NoRewardsAvailable();
@@ -19,8 +18,10 @@ error Staking__PoolLimitReached(
 error Staking__PoolAlreadyClosed();
 error Staking__PoolExceededValidityPeriod();
 error Staking__StakeExceedsYourBalance();
+error Staking__ZeroAddressNotAllowed();
 
 contract StakingRewards is Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     event Staked(
         address userAddress,
         uint amountStaked,
@@ -38,19 +39,20 @@ contract StakingRewards is Pausable, ReentrancyGuard {
     event RewardsClaimed(address userAddress, uint rewardsAmount);
     event ClosedPool(address sender, uint withdrawnFromPool);
 
-    IERC20 public immutable stakingToken;
-    Distributor rewardPool; 
+    address public stakingTokenAddress;
+    address public rewardPoolAddress;
 
     address public owner; // Contract owner
-    uint public constant validityPeriod = 60 * 60 * 24 * 365; //Length of days for staking: 1 year
-    uint public constant maximumPoolMonions = 5000000 * 1e18; //Maximum Pool size for Staking
-    uint public constant totalReward = 100000 * 1e18; //20% return on Max Pool size.
+    uint public constant VALIDITY_PERIOD = 60 * 60 * 24 * 365; //Length of days for staking: 1 year
+    uint public constant MAXIMUM_POOL_MONIONS = 500000;
+    //  * 1e18; //Maximum Pool size for Staking
+    uint public constant TOTAL_REWARD = 100000;
+    //  * 1e18; //20% return on Max Pool size.
 
-    uint public totalSupply; //Total amount of ERC20 tokens currently staked in the contract.
+    uint totalSupply; //Total amount of ERC20 tokens currently staked in the contract.
     uint public finishAt; //Time at which staking becomes closed. i.e. Current time + 1 year,
 
     bool public isPoolClosed; //Checker whether the pool will pay rewards or not.
-    bool public contractHasExpired; // checker whether the contract has passed
 
     mapping(address => uint) public userToUnstakingTime; //Tracks unbonding time.
     mapping(address => bool) public unstakingFlagPerUser; //Tracks unstake state
@@ -61,10 +63,13 @@ contract StakingRewards is Pausable, ReentrancyGuard {
     /// @param _stakingToken This is the Address of the ERC20 token we are staking.
     /// @param _rewardPool This is the distributor contract that pays out rewards.
     constructor(address _stakingToken, address _rewardPool) ReentrancyGuard() {
+        if( _stakingToken == address(0) || _rewardPool == address(0)) {
+            revert Staking__ZeroAddressNotAllowed();
+        }
         owner = msg.sender;
-        stakingToken = IERC20(_stakingToken);
-        rewardPool = Distributor(_rewardPool);
-        finishAt = block.timestamp + validityPeriod; //Time after which staking is no longer permitted.
+        stakingTokenAddress = _stakingToken;
+        rewardPoolAddress = _rewardPool;
+        finishAt = block.timestamp + VALIDITY_PERIOD; //Time after which staking is no longer permitted.
     }
 
     /// @notice Modifier to ensure only certain actions are taken by the owner.
@@ -95,7 +100,9 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         whenNotPaused
         validateDeposit(amount)
         updateReward(msg.sender)
+        nonReentrant
     {
+        IERC20 stakingToken = IERC20(stakingTokenAddress);
         if (isPoolClosed) {
             revert Staking__PoolAlreadyClosed();
         }
@@ -104,14 +111,10 @@ contract StakingRewards is Pausable, ReentrancyGuard {
             revert Staking__PoolExceededValidityPeriod();
         }
 
-        if (amount > stakingToken.balanceOf(msg.sender)) {
-            revert Staking__StakeExceedsYourBalance();
-        }
-
-        stakingToken.transferFrom(msg.sender, address(this), amount);
+        stakingToken.safeTransferFrom(msg.sender, address(this), amount);
 
         balanceOf[msg.sender] += amount;
-        totalSupply += amount;
+        totalSupply = getStakedBalance(); //A.6 fixed
 
         emit Staked(
             msg.sender,
@@ -131,14 +134,17 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         internal
         whenNotPaused
         updateReward(msg.sender)
+        nonReentrant
     {
+        IERC20 stakingToken = IERC20(stakingTokenAddress);
         if (balanceOf[msg.sender] - amount < 0) {
             revert Staking__WithdrawLessThanYourBalance();
         }
         balanceOf[msg.sender] -= amount;
-        totalSupply -= amount;
+        totalSupply = getStakedBalance(); //A.6 Fixed
 
-        stakingToken.transfer(msg.sender, amount);
+        stakingToken.safeTransfer(msg.sender, amount);
+        
 
         emit Unstaked(
             msg.sender,
@@ -151,17 +157,14 @@ contract StakingRewards is Pausable, ReentrancyGuard {
 
     /// @dev This function MUST be called before unstaking
     /// @notice The function is a pre-requisite to unstake.
-    function initiateUnstake(uint amount) external whenNotPaused {
+    function initiateUnstake(uint amount) external whenNotPaused  {
         if (block.timestamp > finishAt) {
             _unstake(amount);
         } else {
             if (!unstakingFlagPerUser[msg.sender]) {
                 userToUnstakingTime[msg.sender] = block.timestamp + 1 days;
                 unstakingFlagPerUser[msg.sender] = true;
-                console.log(
-                    "Unstake initiated for %s, 24h countdown begins...!",
-                    msg.sender
-                );
+                
             } else if (block.timestamp > userToUnstakingTime[msg.sender]) {
                 _unstake(amount);
                 unstakingFlagPerUser[msg.sender] = false;
@@ -180,9 +183,7 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         updateReward(msg.sender)
         nonReentrant
     {
-        // if(balanceOf[msg.sender] <= 0){
-        //     revert Staking__NoStakeInPool();
-        // }
+        
 
         if (rewards[msg.sender] <= 0) {
             revert Staking__NoRewardsAvailable();
@@ -191,18 +192,21 @@ contract StakingRewards is Pausable, ReentrancyGuard {
 
         uint amount = rewards[msg.sender];
         rewards[msg.sender] = 0;
-        stakingToken.transfer(msg.sender, amount);
+
+        Distributor rewardPool = Distributor(rewardPoolAddress);
+        require(rewardPool.transfer(owner, amount), "Claim Reward Failed");
 
         emit RewardsClaimed(msg.sender, amount);
     }
 
     /// @dev This function allows the owner to close the pool, and withdraw all the pool rewards
-    function closePool() external whenPaused onlyOwner {
+    function closePool() external whenPaused onlyOwner nonReentrant {
         require(!isPoolClosed, "Pool Already Closed");
-
+        
+        Distributor rewardPool = Distributor(rewardPoolAddress);
         uint amount = rewardPool.poolBalance();
         isPoolClosed = true;
-        rewardPool.transfer(owner, amount);
+        require(rewardPool.transfer(owner, amount), "Close Pool Failed");
 
         emit ClosedPool(msg.sender, amount);
     }
@@ -219,8 +223,8 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         uint prevBalance = balanceOf[msg.sender];
         uint diff = _lastTimeRewardApplicable() -
             userLastUpdateTime[msg.sender];
-        uint numerator = prevBalance * totalReward * diff;
-        uint denominator = maximumPoolMonions * validityPeriod;
+        uint numerator = prevBalance * TOTAL_REWARD * diff;
+        uint denominator = MAXIMUM_POOL_MONIONS * VALIDITY_PERIOD;
         return numerator / denominator;
     }
 
@@ -245,10 +249,10 @@ contract StakingRewards is Pausable, ReentrancyGuard {
     }
 
     function _poolChecker(uint amount) internal view returns (bool) {
-        if ((totalSupply + amount) > maximumPoolMonions) {
-            int diff = int((totalSupply + amount) - maximumPoolMonions);
+        if ((totalSupply + amount) > MAXIMUM_POOL_MONIONS) {
+            int diff = int((getStakedBalance() + amount) - MAXIMUM_POOL_MONIONS);
             revert Staking__PoolLimitReached({
-                maxPoolSize: maximumPoolMonions,
+                maxPoolSize: MAXIMUM_POOL_MONIONS,
                 yourDeposit: amount,
                 reduceBy: diff
             });
@@ -256,11 +260,15 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         return true;
     }
 
-    // function _timeChecker() internal view returns(bool){
-
-    // }
+    
 
     function _min(uint x, uint y) private pure returns (uint) {
         return x <= y ? x : y;
+    }
+
+    function getStakedBalance() public view returns(uint256 contractstakedBalance) {
+        IERC20 stakingToken = IERC20(stakingTokenAddress);
+        contractstakedBalance = stakingToken.balanceOf(address(this));
+
     }
 }

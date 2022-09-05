@@ -7,7 +7,7 @@ const { expect, assert } = require("chai");
 const { BigNumber } = require("ethers");
 // const { ethers } = require("ethers");
 
-describe("Setup of Architecture", function () {
+xdescribe("Setup of Architecture", function () {
   let deployer, alice, bob, charlie, david;
   let admin, monion, rewardPool, staking;
   let unlockTime;
@@ -42,11 +42,11 @@ describe("Setup of Architecture", function () {
     it("should confirm the staking period of 1 year", async function () {
       expect(await staking.validityPeriod()).to.equal(ONE_YEAR_IN_SECS);
     });
-    it("should confirm maximum staked tokens of 100000", async function () {
-      expect(await staking.maximumPoolMonions()).to.equal(100000);
+    it("should confirm maximum staked tokens of 5000000", async function () {
+      expect(await staking.maximumPoolMonions()).to.equal(5000000);
     });
-    it("should confirm that the size of the pool is 20000", async function () {
-      expect(await staking.totalReward()).to.equal(20000);
+    it("should confirm that the size of the pool is 1000000", async function () {
+      expect(await staking.totalReward()).to.equal(1000000);
     });
   });
 
@@ -54,8 +54,8 @@ describe("Setup of Architecture", function () {
     it("should confirm that the reward pool is funded", async function () {
       // await monion.connect(deployer).approve(rewardPool.address, 20000);
       // await monion.connect(deployer).transferFrom(deployer.address, rewardPool.address, 20000);
-      await monion.connect(deployer).transfer(rewardPool.address, 20000);
-      expect(await rewardPool.poolBalance()).to.equal(20000);
+      await monion.connect(deployer).transfer(rewardPool.address, 1000000);
+      expect(await rewardPool.poolBalance()).to.equal(1000000);
     });
     it("the deployer should fund alice, bob", async function () {
         
@@ -134,46 +134,6 @@ describe("Setup of Architecture", function () {
       );
     });
 
-    xit("should allow Bob to unstake by day 201", async function () {
-      const initiateUnstakedTime = await time.increase(60 * 60 * 24 * 21);
-      console.log(
-        `Bob initiated unstaking at ${new Date(initiateUnstakedTime * 1000)
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " ")}`
-      );
-      await staking.connect(bob).initiateUnstake(21000);
-      const unstakedTime = await time.increase(60 * 60 * 24 * 1);
-      console.log(
-        `Bob unstaked 21000 at ${new Date(unstakedTime * 1000)
-          .toISOString()
-          .slice(0, 19)
-          .replace("T", " ")}`
-      );
-      const balBefore = await monion.balanceOf(bob.address);
-      await staking.connect(bob).initiateUnstake(21000);
-      const balAfter = await monion.balanceOf(bob.address);
-      console.log(
-        `Bob's balance before withdrawal was ${balBefore}, balance after withdrawal is ${balAfter}`
-      );
-      // assert(balAfter.toNumber() > balBefore.toNumber());
-      expect(balAfter.toNumber()).to.be.greaterThan(balBefore.toNumber());
-    });
-    xit("should allow Bob to claim rewards from the pool", async function () {
-      console.log(
-        "Pool balance is: ",
-        await monion.balanceOf(rewardPool.address)
-      );
-      const balBefore = await monion.balanceOf(bob.address);
-      console.log(
-        "Rewards balance due to Bob: ",
-        await staking.rewards(bob.address)
-      );
-      await staking.connect(bob).claimRewards();
-      const balAfter = await monion.balanceOf(bob.address);
-      console.log(
-        `Bob's balance before claiming reward was ${balBefore}, balance after claiming is ${balAfter}`
-      );
-    });
+    
   });
 });

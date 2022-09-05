@@ -20,7 +20,7 @@ describe("Setup of Architecture", function () {
     await admin.deployed();
 
     const MonionToken = await ethers.getContractFactory("Monion", deployer);
-    monion = await MonionToken.deploy(2000000);
+    monion = await MonionToken.deploy(20000000);
     await monion.deployed();
 
     const RewardPool = await ethers.getContractFactory("Distributor", deployer);
@@ -41,11 +41,11 @@ describe("Setup of Architecture", function () {
     it("should confirm the staking period of 1 year", async function () {
       expect(await staking.validityPeriod()).to.equal(ONE_YEAR_IN_SECS);
     });
-    it("should confirm maximum staked tokens of 100000", async function () {
-      expect(await staking.maximumPoolMonions()).to.equal(100000);
+    it("should confirm maximum staked tokens of 500000", async function () {
+      expect(await staking.maximumPoolMonions()).to.equal(500000);
     });
-    it("should confirm that the size of the pool is 20000", async function () {
-      expect(await staking.totalReward()).to.equal(20000);
+    it("should confirm that the size of the pool is 100000", async function () {
+      expect(await staking.totalReward()).to.equal(100000);
     });
   });
 
@@ -53,18 +53,18 @@ describe("Setup of Architecture", function () {
     it("should confirm that the reward pool is funded", async function () {
       // await monion.connect(deployer).approve(rewardPool.address, 20000);
       // await monion.connect(deployer).transferFrom(deployer.address, rewardPool.address, 20000);
-      await monion.connect(deployer).transfer(rewardPool.address, 20000);
-      expect(await rewardPool.poolBalance()).to.equal(20000);
+      await monion.connect(deployer).transfer(rewardPool.address, 100000);
+      expect(await rewardPool.poolBalance()).to.equal(100000);
     });
     it("the deployer should fund alice, bob and charlie", async function () {
       await monion.connect(deployer).transfer(alice.address, 3000);
       await monion.connect(deployer).transfer(bob.address, 34000);
       await monion.connect(deployer).transfer(charlie.address, 18000);
-      await monion.connect(deployer).transfer(david.address, 120000);
+      await monion.connect(deployer).transfer(david.address, 500001);
       expect(await monion.balanceOf(alice.address)).to.equal(3000);
       expect(await monion.balanceOf(bob.address)).to.equal(34000);
       expect(await monion.balanceOf(charlie.address)).to.equal(18000);
-      expect(await monion.balanceOf(david.address)).to.equal(120000);
+      expect(await monion.balanceOf(david.address)).to.equal(500001);
     });
     it("should allow Alice stake at the start of day 3", async function () {
       const aliceStakedTime = await time.increase(60 * 60 * 24 * 3);
@@ -161,9 +161,9 @@ describe("Setup of Architecture", function () {
       //   [lockedAmount, -lockedAmount]
     });
     it("should attempt to stake more than the pool limit", async function () {
-      await monion.connect(david).approve(staking.address, 120000);
+      await monion.connect(david).approve(staking.address, 500001);
       try {
-        await staking.connect(david).stake(120000);
+        await staking.connect(david).stake(500001);
       } catch (error) {
         console.log(error.message);
         return;
