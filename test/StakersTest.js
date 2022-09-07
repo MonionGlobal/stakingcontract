@@ -39,13 +39,13 @@ describe("Setup of Architecture", function () {
 
   describe("Deployed Processes", function () {
     it("should confirm the staking period of 1 year", async function () {
-      expect(await staking.validityPeriod()).to.equal(ONE_YEAR_IN_SECS);
+      expect(await staking.VALIDITY_PERIOD()).to.equal(ONE_YEAR_IN_SECS);
     });
     it("should confirm maximum staked tokens of 500000", async function () {
-      expect(await staking.maximumPoolMonions()).to.equal(500000);
+      expect(await staking.MAXIMUM_POOL_MONIONS()).to.equal(500000);
     });
     it("should confirm that the size of the pool is 100000", async function () {
-      expect(await staking.totalReward()).to.equal(100000);
+      expect(await staking.TOTAL_REWARD()).to.equal(100000);
     });
   });
 
