@@ -199,10 +199,20 @@ contract StakingRewards is Pausable, ReentrancyGuard {
         emit RewardsClaimed(msg.sender, amount);
     }
 
+
     /// @dev This function allows the owner to close the pool, and withdraw all the pool rewards
     function closePool() external whenPaused onlyOwner nonReentrant {
         require(!isPoolClosed, "Pool Already Closed");
-        
+        /**
+         * This function is currently callable by only the admin. However, there are plans in motion
+         * to ensure that prior to this decision being taken a vote is carried out on the Monion DAO.
+         * Should the outcome of the vote indicate a need to call this function, the function will be
+         * called.
+         * The instance in which the function may be need is a situation where rewards have been left 
+         * in the pool and unclaimed by users after a significantly long time since the contract has 
+         * closed staking. In this instance a vote will be taken whether to withdraw the funds or burn
+         * the funds.
+         */
         Distributor rewardPool = Distributor(rewardPoolAddress);
         uint amount = rewardPool.poolBalance();
         isPoolClosed = true;
